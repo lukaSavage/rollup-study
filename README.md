@@ -1,37 +1,97 @@
 # rollup-study
 
-#### 介绍
-由浅入深学习rollup
+## 一、背景介绍
 
-#### 软件架构
-软件架构说明
+- webpack打包非常繁琐，打包体积比较大
+- rollup主要是用来打包JS库的
+- vue/react/angular都在用rollup作为打包工具
 
+## 二、安装插件
 
-#### 安装教程
+```bash
+cnpm i @babel/core @babel/preset-env  @rollup/plugin-commonjs @rollup/plugin-node-resolve @rollup/plugin-typescript lodash rollup rollup-plugin-babel postcss rollup-plugin-postcss rollup-plugin-terser tslib typescript rollup-plugin-serve rollup-plugin-livereload -D
+```
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## 三、rollup初体验
 
-#### 使用说明
+### 3.1 创建rollup.config.js文件
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+> 配置文件是一个ES6模块，它对外暴露一个对象，这个对象包含了一些Rollup需要的一些选项。通常，我们把这个配置文件叫做`rollup.config.js`，它通常位于项目的根目录,下面是一些配置选项
 
-#### 参与贡献
+#### 3.1.1 基本配置
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+1. 首先，我们在根目录下创建`rollup.config.js`文件，配置如下
 
+   ```js
+   export default {
+       input: 'src/main.js',
+       output: {
+           file: 'dist/bundle.cjs.js', // 输出的文件路径和文件名
+           format: 'cjs', // 输出的格式， amd es iife umd cjs system
+       }
+   }
+   ```
 
-#### 特技
+2. 接着我们在根目录下创建一个src文件夹，里面放置main.js文件，如下↓↓↓
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+   ```js
+   console.log('aaa')
+   ```
+
+   
+
+3. 更改package.json文件脚本
+
+   ```json
+   {
+       "script"： {
+       "build": "rollup --config"
+   }
+   ```
+
+#### 3.1.2 rollup的基本配置选项（了解）
+
+```js
+// rollup.config.js
+export default {
+  	// 核心选项
+  	input,     // 必须
+  	external,
+  	plugins,
+
+  	// 额外选项
+  	onwarn,
+
+  	// danger zone
+  	acorn,
+  	context,
+  	moduleContext,
+  	legacy
+
+  	output: {  // 必须 (如果要输出多个，可以是一个数组)
+    	// 核心选项
+    	file,    // 必须
+    	format,  // 必须
+    	name, // 当format是‘iife’的时候，name值必须提供
+    	globals,
+
+    	// 额外选项
+    	paths,
+    	banner,
+    	footer,
+    	intro,
+    	outro,
+    	sourcemap,
+    	sourcemapFile,
+    	interop,
+
+    	// 高危选项
+    	exports,
+    	amd,
+    	indent
+    	strict
+  	},
+};
+
+```
+
