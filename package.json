@@ -4,7 +4,8 @@
   "description": "由浅入深学习rollup",
   "main": "index.js",
   "scripts": {
-    "build": "rollup --config"
+    "build": "rollup --config",
+    "dev": "rollup --config -w"
   },
   "repository": {
     "type": "git",
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@babel/core": "^7.18.2",
     "@babel/preset-env": "^7.18.2",
+    "@rollup/plugin-babel": "^5.3.1",
     "@rollup/plugin-commonjs": "^22.0.0",
     "@rollup/plugin-node-resolve": "^13.3.0",
     "@rollup/plugin-typescript": "^8.3.2",
