@@ -441,3 +441,207 @@ export default {
 }
 ```
 
+# rollup源码实现前置知识
+
+## 一、前景说明
+
+​	rollup 使用了 `acorn` 和 `magic-string` 两个库。为了更好的阅读 rollup 源码，必须对它们有所了解。
+
+## 二、安装
+
+```bash
+cnpm install magic-string acorn --save
+```
+
+## 三、magic-string
+
+> [magic-string](https://www.npmjs.com/package/magic-string)是一个操作字符串和生成source-map的工具。`magic-string` 是 rollup 作者写的一个关于字符串操作的库。以下是代码demo↓↓↓
+
+```js
+var MagicString = require('magic-string');
+var magicString = new MagicString('export var name = "beijing"');
+//类似于截取字符串
+console.log(magicString.snip(0,6).toString()); // export
+//从开始到结束删除字符串(索引永远是基于原始的字符串，而非改变后的)
+console.log(magicString.remove(0,7).toString()); // var name = "beijing"
+
+//很多模块，把它们打包在一个文件里，需要把很多文件的源代码合并在一起
+let bundleString = new MagicString.Bundle();
+bundleString.addSource({
+    content:'var a = 1;',
+    separator:'\n'
+});
+bundleString.addSource({
+    content:'var b = 2;',
+    separator:'\n'
+});
+/* let str = '';
+str += 'var a = 1;\n'
+str += 'var b = 2;\n'
+console.log(str); */
+console.log(bundleString.toString());
+// var a = 1;
+//var b = 2;
+```
+
+## 四、AST语法树
+
+- 介绍
+
+  - 抽象语法树（Abstract Syntax Tree，AST）是源代码语法结构的一种抽象表示
+  - 它以树状的形式表现编程语言的语法结构，树上的每个节点都表示源代码中的一种结构
+
+- 用途
+
+  - 代码语法的检查、代码风格的检查、代码的格式化、代码的高亮、代码错误提示、代码自动补全等等
+  - 优化变更代码，改变代码结构使达到想要的结构
+
+- 定义
+
+  - 这些工具的原理都是通过`JavaScript Parser`把代码转化为一颗抽象语法树（AST），这颗树定义了代码的结构，通过操纵这颗树，我们可以精准的定位到声明语句、赋值语句、运算语句等等，实现对代码的分析、优化、变更等操作
+
+  ![](E:\rollup-study\img\01.jpg)
+
+- AST工作流
+
+  - Parse(解析) 将源代码转换成抽象语法树，树上有很多的estree节点
+  - Transform(转换) 对抽象语法树进行转换
+  - Generate(代码生成) 将上一步经过转换过的抽象语法树生成新的代码
+
+![](E:\rollup-study\img\02.png)
+
+
+
+## 五、acorn
+
+> acorn的作用比较单一，只负责把源代码变成AST语法树这一件事情。
+
+- [astexplorer](https://astexplorer.net/)可以把代码转成语法树
+
+- acorn 解析结果符合The Estree Spec规范
+
+- 拓展内容
+
+  ```js
+  esprima           转AST
+  estraverse        AST遍历和转换
+  escodegen         代码生成
+  
+  @babel/parser     转AST
+  @babel/traverse   AST遍历
+  @babel/generator  代码生成
+  ```
+
+- acorn的使用
+
+  这里我们以`import $ from 'jquery'`为例进行分析，代码如下
+
+  ```js
+  const acorn = require('acorn');
+  const sourceCode = 'import $ from "jquery"';
+  const ast = acorn.parse(sourceCode, {
+  	locations: true,             // 是否显示位置
+  	ranges: true,                // 是否显示范围
+  	sourceType: 'module',        // 模块类型
+  	ecmaVersion: 8,              // ecma版本号
+  });
+  console.log(ast);
+  ```
+
+  这时，我们拿到的`ast`的值为：
+
+  ```js
+  {
+    type: 'Program',
+    start: 0,
+    end: 22,
+    loc: SourceLocation {
+      start: Position { line: 1, column: 0 },
+      end: Position { line: 1, column: 22 }
+    },
+    range: [ 0, 22 ],
+    body: [
+      Node {
+        type: 'ImportDeclaration',
+        start: 0,
+        end: 22,
+        loc: [SourceLocation],
+        range: [Array],
+        specifiers: [Array],  // 导入标识符
+        source: [Node]
+      }
+    ],
+    sourceType: 'module'
+  }
+  ```
+
+  可以看到这个 AST 的类型为 program，表明这是一个程序。body 则包含了这个程序下面所有语句对应的 AST 子节点。
+
+  每个节点都有一个 type 类型，例如 Identifier，说明这个节点是一个标识符；
+
+  如果想了解更多详情 AST 节点的信息可以看一下这篇文章[《使用 Acorn 来解析 JavaScript》](https://juejin.cn/post/6844903450287800327)。
+
+  ![](E:\rollup-study\img\03.jpg)
+
+## 六、rollup打包分析
+
+	在 rollup 中，一个文件就是一个模块。每一个模块都会根据文件的代码生成一个 AST 语法抽象树，rollup 需要对每一个 AST 节点进行分析。分析 AST 节点，就是看看这个节点有没有调用函数或方法。如果有，就查看所调用的函数或方法是否在当前作用域，如果不在就往上找，直到找到模块顶级作用域为止。如果本模块都没找到，说明这个函数、方法依赖于其他模块，需要从其他模块引入。
+# rollup源码实现
+
+## 一、安装依赖
+
+```bash
+cnpm install magic-string acorn --save
+```
+
+## 二、文件目录
+
+```
+├── package.json
+├── README.md
+├── src
+    ├── ast
+    │   ├── analyse.js //分析AST节点的作用域和依赖项
+    │   ├── Scope.js //有些语句会创建新的作用域实例
+    │   └── walk.js //提供了递归遍历AST语法树的功能
+    ├── Bundle//打包工具，在打包的时候会生成一个Bundle实例，并收集其它模块，最后把所有代码打包在一起输出
+    │   └── index.js 
+    ├── Module//每个文件都是一个模块
+    │   └── index.js
+    ├── rollup.js //打包的入口模块
+    └── utils
+        ├── map-helpers.js
+        ├── object.js
+        └── promise.js
+```
+
+## 三、rollup流程以及各个文件分析
+
+### 3.1 debugger.js文件
+
+​	此文件使我们在运行自定义rollup的执行文件，它做的事情很简单，就是调用一个rollup方法，进行文件打包
+
+```js
+/*
+ * @Descripttion: 自定义rollup执行文件
+ * @Author: lukasavage
+ * @Date: 2022-06-05 16:09:43
+ * @LastEditors: lukasavage
+ * @LastEditTime: 2022-06-05 17:47:50
+ * @FilePath: \rollup-study\debugger.js
+ */
+const rollup = require('./rollup-demo/rollup');
+
+// 执行打包，并且把打包后的结果写入bundle.js中
+rollup('./src/demo.js', 'bundle.js');
+```
+
+### 3.1.1 demo.js
+
+​	此文件是用户写的js文件
+
+```js
+console.log('hello');
+console.log('rollup');
+```
+
