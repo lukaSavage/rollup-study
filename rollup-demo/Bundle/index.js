@@ -1,9 +1,9 @@
 /*
- * @Descripttion:
+ * @Descripttion: rollup的打包暴露出的方法
  * @Author: lukasavage
  * @Date: 2022-06-05 16:03:53
  * @LastEditors: lukasavage
- * @LastEditTime: 2022-06-05 17:41:09
+ * @LastEditTime: 2022-06-06 09:36:26
  * @FilePath: \rollup-study\rollup-demo\Bundle\index.js
  */
 
