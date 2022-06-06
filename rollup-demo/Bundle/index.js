@@ -3,7 +3,7 @@
  * @Author: lukasavage
  * @Date: 2022-06-05 16:03:53
  * @LastEditors: lukasavage
- * @LastEditTime: 2022-06-06 09:36:26
+ * @LastEditTime: 2022-06-06 20:45:38
  * @FilePath: \rollup-study\rollup-demo\Bundle\index.js
  */
 
@@ -27,7 +27,7 @@ class Bundle {
 		const entryModule = (this.entryModule = this.fetchModule(
 			this.entryPath
 		));
-		// 2.将代码展开(展开的意思是：将import、require('xxx')获取到的变量放入到当前文件中，并同时删除import、require)
+		// 2.把这个入口模块所有的语句进行展开，返回所有的语句组成的数组(展开的意思是：将import、require('xxx')获取到的变量放入到当前文件中，并同时删除import、require)
 		this.statements = entryModule.expandAllStatement();
 		const code = this.generate();
 		fs.writeFileSync(outputFile, code);
@@ -42,9 +42,9 @@ class Bundle {
 		if (route) {
 			const code = fs.readFileSync(route, 'utf8');
 			const module = new Module({
-				code,
-				path: route,
-				bundle: this,
+				code,         // 要打包的源文件代码
+				path: route,  // 文件路径
+				bundle: this, // 属于哪一个Bundle
 			});
 			return module;
 		}

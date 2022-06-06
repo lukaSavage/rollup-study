@@ -1,9 +1,9 @@
 /*
- * @Descripttion:
+ * @Descripttion: 模块文件信息的汇总，包括code、path、bundle、ast等
  * @Author: lukasavage
  * @Date: 2022-06-05 16:21:20
  * @LastEditors: lukasavage
- * @LastEditTime: 2022-06-05 17:16:16
+ * @LastEditTime: 2022-06-06 20:33:39
  * @FilePath: \rollup-study\rollup-demo\Module\index.js
  */
 const { default: MagicString } = require('magic-string');

@@ -666,7 +666,7 @@ const Bundle = require('./Bundle');
  * @param {string} outputFile 要打包后的文件名
  */
 function rollup(entry, outputFile) {
-    // 打包文件的实例bundle,内部有写出文件的方法build
+    // 打包文件的实例bundle,包含打包文件的所有信息
 	const bundle = new Bundle({ entry });
 	bundle.build(outputFile);
 }
@@ -674,3 +674,154 @@ function rollup(entry, outputFile) {
 module.exports = rollup;
 ```
 
+### 3.1.3 bundle.js
+
+​	此文件是实现rollup的核心包，包括读写操作文件、生成字符串包等功能
+
+```js
+/*
+ * @Descripttion: rollup的打包暴露出的方法
+ * @Author: lukasavage
+ * @Date: 2022-06-05 16:03:53
+ * @LastEditors: lukasavage
+ * @LastEditTime: 2022-06-06 09:36:26
+ * @FilePath: \rollup-study\rollup-demo\Bundle\index.js
+ */
+
+const { default: MagicString } = require('magic-string');
+const path = require('path');
+const fs = require('fs');
+
+const Module = require('../Module');
+
+class Bundle {
+	constructor({ entry }) {
+		// 可能传过来的是相对路径，统一转成绝对路径
+		this.entryPath = path.resolve(entry);
+		// 存放着本次打包的所有模块
+		this.modules = {};
+	}
+
+	// 负责编译入口文件，然后把结果写入outputFile
+	build(outputFile) {
+		// 1.先获取模块
+		const entryModule = (this.entryModule = this.fetchModule(
+			this.entryPath
+		));
+		// 2.将代码展开(展开的意思是：将import、require('xxx')获取到的变量放入到当前文件中，并同时删除import、require)
+		this.statements = entryModule.expandAllStatement();
+		const code = this.generate();
+		fs.writeFileSync(outputFile, code);
+	}
+
+	/**
+	 * 根据模块的绝对路径返回模块的实例
+	 * @param {string} entryPath 模块的绝对路径
+	 */
+	fetchModule(entryPath) {
+		const route = entryPath;
+		if (route) {
+			const code = fs.readFileSync(route, 'utf8');
+			const module = new Module({
+				code,
+				path: route,
+				bundle: this,
+			});
+			return module;
+		}
+	}
+
+	generate() {
+		// 生成字符串包
+		const bundleString = new MagicString.Bundle();
+		// this.statements只有入口模块里所有的顶层节点
+		this.statements.forEach(statement => {
+			const content = statement._source.clone();
+			bundleString.addSource({
+				content,
+				separator: '\n',
+			});
+		});
+		return bundleString.toString();
+	}
+}
+module.exports = Bundle;
+
+// 该模块有点类似于webpack中的Compile
+```
+
+### 3.1.4 module.js
+
+​	模块文件信息的汇总，包括code、path、bundle、ast等
+
+```js
+/*
+ * @Descripttion: 模块文件信息的汇总，包括code、path、bundle、ast等
+ * @Author: lukasavage
+ * @Date: 2022-06-05 16:21:20
+ * @LastEditors: lukasavage
+ * @LastEditTime: 2022-06-06 20:33:39
+ * @FilePath: \rollup-study\rollup-demo\Module\index.js
+ */
+const { default: MagicString } = require('magic-string');
+const { parse } = require('acorn');
+
+const analyse = require('../ast/analyse');
+
+class Module {
+	constructor({ code, path, bundle }) {
+		this.code = new MagicString(code, { filename: path });
+		this.path = path;
+		this.bundle = bundle;
+		this.ast = parse(code, {
+			ecmaVersion: 8,
+			sourceType: 'module',
+		});
+		analyse(this.ast, this.code, this );
+	}
+	// 展开代码的方法
+	expandAllStatement() {
+		const allStatements = [];
+		this.ast.body.forEach(statement => {
+			// todo: 我们可能要把statement进行拓展，有可能一行变成多行var name = '张三'; console.log('name');
+			allStatements.push(statement);
+		});
+		return allStatements;
+	}
+}
+module.exports = Module;
+
+```
+
+### 3.1.5 ast/analysis.js
+
+​	通过`acorn`编译语法树，再给语法树的*statement*添加_source属性返回
+
+```js
+/*
+ * @Descripttion:
+ * @Author: lukasavage
+ * @Date: 2022-06-05 16:56:49
+ * @LastEditors: lukasavage
+ * @LastEditTime: 2022-06-05 17:03:05
+ * @FilePath: \rollup-study\rollup-demo\ast\analyse.js
+ */
+
+function analyse(ast, magicStringOfAst, module) {
+	ast.body.forEach(statement => {
+		Object.defineProperties(statement, {
+			// key是_source, 值是这个语法树节点在源码中的源代码
+             //start指的是此节点在源代码中的起始索引,end就是结束索引
+      		//magicString.snip返回的还是magicString 实例clone
+			_source: {
+				value: magicStringOfAst.snip(statement.start, statement.end),
+			},
+		});
+	});
+}
+module.exports = analyse;
+```
+
+### 3.1.6 总结
+
+Bundle的实例在build的时候，会从入口出发，每一个文件会生成一个module实例，包含模块的源代码，模块的路径，模块的抽象语法树ast，然后将语法树语句进行展开，返回所有的语句组成的数组，最后调用generate生成最终的代码。

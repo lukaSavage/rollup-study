@@ -3,7 +3,7 @@
  * @Author: lukasavage
  * @Date: 2022-06-06 09:24:45
  * @LastEditors: lukasavage
- * @LastEditTime: 2022-06-06 09:34:43
+ * @LastEditTime: 2022-06-06 20:44:47
  * @FilePath: \rollup-study\rollup-demo\rollup.js
  */
 const Bundle = require('./Bundle');
@@ -14,7 +14,7 @@ const Bundle = require('./Bundle');
  * @param {string} outputFile 要打包后的文件名
  */
 function rollup(entry, outputFile) {
-    // 打包文件的实例bundle,内部有写出文件的方法build
+    // 打包文件的实例bundle,包含打包文件的所有信息
 	const bundle = new Bundle({ entry });
 	bundle.build(outputFile);
 }
