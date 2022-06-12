@@ -3,7 +3,7 @@
  * @Author: lukasavage
  * @Date: 2022-06-05 16:21:20
  * @LastEditors: lukasavage
- * @LastEditTime: 2022-06-06 20:33:39
+ * @LastEditTime: 2022-06-10 21:35:43
  * @FilePath: \rollup-study\rollup-demo\Module\index.js
  */
 const { default: MagicString } = require('magic-string');
@@ -20,7 +20,35 @@ class Module {
 			ecmaVersion: 8,
 			sourceType: 'module',
 		});
-		analyse(this.ast, this.code, this );
+		this.imports = {}; // 存放着当前模块所有的导入
+		this.exports = {}; // 存放着当前模块所有的导出
+		this.analyse();
+	}
+	analyse() {
+		this.ast.body.forEach(statement => {
+			if (statement.type === 'ImportDeclaration') {
+				// 如果是导入语句
+				const source = statement.source.value; // ./msg  代表从哪个模块来的
+				statement.specifiers.forEach(specifier => {
+					const importName = specifier.imported.name; // name
+					const localName = specifier.local.name; // a
+					// 将上面拿到的本地名、来源、来源名统一记录到this.imports中
+					this.imports[localName] = { localName, source, importName };
+				});
+			} else if (statement.type === 'ExportNamedDeclaration') {
+				const declaration = statement.declaration;
+				if (declaration.type === 'VariableDeclaration') {
+					const declarations = declaration.declarations;
+					this.exports[localName] = {
+						localName,
+						exportName: localName,
+						expression: declaration,
+					};
+				}
+			}
+		});
+		// 1.给import和export赋值
+		analyse(this.ast, this.code, this);
 	}
 	// 展开代码的方法
 	expandAllStatement() {

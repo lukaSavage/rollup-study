@@ -586,7 +586,7 @@ console.log(bundleString.toString());
 ## 六、rollup打包分析
 
 	在 rollup 中，一个文件就是一个模块。每一个模块都会根据文件的代码生成一个 AST 语法抽象树，rollup 需要对每一个 AST 节点进行分析。分析 AST 节点，就是看看这个节点有没有调用函数或方法。如果有，就查看所调用的函数或方法是否在当前作用域，如果不在就往上找，直到找到模块顶级作用域为止。如果本模块都没找到，说明这个函数、方法依赖于其他模块，需要从其他模块引入。
-# rollup源码实现
+# 简易版rollup源码实现
 
 ## 一、安装依赖
 
@@ -829,3 +829,107 @@ Bundle的实例在build的时候，会从入口出发，每一个文件会生成
 ### 3.1.7 原理图总结
 
 ![](E:\vite-demo\img\12.png)
+
+# tree-shaking的实现原理
+
+​	我们知道，在rollup通过build方法打包的时候，实际上会调用Bundle实例上的build方法，在build方法里面会去分析语法树，tree shaking的原理正是分析了语法树里面的导入、导出变量才实现的。
+
+## 一、ast导入和导出的解析
+
+### 1.1 导入与导出的实现
+
+#### 1.1.1 导入语句
+
+首先我们打开`https://astexplorer.net/`网址来分析下的ast树长什么样
+
+```js
+import { name as a } from './msg'
+```
+
+对应的ast如下↓
+
+![](E:\vite-demo\img\13.png)
+
+#### 1.1.2 导出语句
+
+```js
+export const name = '张三'
+```
+
+对应的ast如下↓
+
+![](E:\vite-demo\img\14.png)
+
+#### 1.1.3完整代码如下
+
+> 以下代码的主要作用：收集imports、exports
+
+```js
+/*
+ * @Descripttion: 模块文件信息的汇总，包括code、path、bundle、ast等
+ * @Author: lukasavage
+ * @Date: 2022-06-05 16:21:20
+ * @LastEditors: lukasavage
+ * @LastEditTime: 2022-06-10 21:35:43
+ * @FilePath: \rollup-study\rollup-demo\Module\index.js
+ */
+const { default: MagicString } = require('magic-string');
+const { parse } = require('acorn');
+
+const analyse = require('../ast/analyse');
+
+class Module {
+	constructor({ code, path, bundle }) {
+		this.code = new MagicString(code, { filename: path });
+		this.path = path;
+		this.bundle = bundle;
+		this.ast = parse(code, {
+			ecmaVersion: 8,
+			sourceType: 'module',
+		});
+		this.imports = {}; // 存放着当前模块所有的导入
+		this.exports = {}; // 存放着当前模块所有的导出
+		this.analyse();
+	}
+	analyse() {
+		this.ast.body.forEach(statement => {
+			if (statement.type === 'ImportDeclaration') {
+				// 如果是导入语句
+				const source = statement.source.value; // ./msg  代表从哪个模块来的
+				statement.specifiers.forEach(specifier => {
+					const importName = specifier.imported.name; // name
+					const localName = specifier.local.name; // a
+					// 将上面拿到的本地名、来源、来源名统一记录到this.imports中
+					this.imports[localName] = { localName, source, importName };
+				});
+			} else if (statement.type === 'ExportNamedDeclaration') {
+				const declaration = statement.declaration;
+				if (declaration.type === 'VariableDeclaration') {
+					const declarations = declaration.declarations;
+					this.exports[localName] = {
+						localName,
+						exportName: localName,
+						expression: declaration,
+					};
+				}
+			}
+		});
+		// 1.给import和export赋值
+		analyse(this.ast, this.code, this);
+	}
+	// 展开代码的方法
+	expandAllStatement() {
+		const allStatements = [];
+		this.ast.body.forEach(statement => {
+			// todo: 我们可能要把statement进行拓展，有可能一行变成多行var name = '张三'; console.log('name');
+			allStatements.push(statement);
+		});
+		return allStatements;
+	}
+}
+module.exports = Module;
+```
+
+#### 1.1.4 挂载imports、exports
+
+​	当我们收集到imports、exports之后，我们需要把它们挂载上去了
